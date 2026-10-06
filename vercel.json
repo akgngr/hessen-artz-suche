@@ -3,11 +3,7 @@
   "builds": [
     {
       "src": "src/index.js",
-      "use": "@vercel/node",
-      "config": {
-        "memory": 300,
-        "maxDuration": 10
-      }
+      "use": "@vercel/node"
     }
   ],
   "routes": [
@@ -35,7 +31,5 @@
     }
   ],
   "name": "hessen-artz-suche-mcp",
-  "regions": ["fra1"],
-  "memory": 300,
-  "maxDuration": 10
+  "regions": ["fra1"]
 }
