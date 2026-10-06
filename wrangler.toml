@@ -1,0 +1,14 @@
+name = "hessen-artz-suche-mcp"
+main = "src/index.js"
+compatibility_date = "2024-11-05"
+
+# Cloudflare Worker Configuration
+
+[build]
+command = "echo 'No build needed'"
+
+[build.upload]
+format = "modules"
+
+# Ignore files for Cloudflare deploy
+ignore = ["vercel.json", ".vercelignore", ".github/workflows/deploy-vercel.yml"]

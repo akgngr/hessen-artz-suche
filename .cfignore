@@ -1,0 +1,7 @@
+# Vercel specific files
+vercel.json
+.vercel/
+.vercelignore
+
+# GitHub Workflows for Vercel
+.github/workflows/deploy-vercel.yml

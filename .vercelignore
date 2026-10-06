@@ -1,0 +1,10 @@
+# Cloudflare Workers specific files
+wrangler.toml
+
+# Cloudflare related
+.cfignore
+.dev.vars
+.wrangler/
+
+# GitHub Workflows for Cloudflare
+.github/workflows/deploy-cloudflare.yml

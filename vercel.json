@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/index.js",
+      "use": "@vercel/node",
+      "config": {
+        "memory": 300,
+        "maxDuration": 10
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/sse",
+      "dest": "src/index.js",
+      "headers": {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+      }
+    },
+    {
+      "src": "/mcp",
+      "dest": "src/index.js",
+      "headers": {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "src/index.js"
+    }
+  ],
+  "name": "hessen-artz-suche-mcp",
+  "regions": ["fra1"],
+  "memory": 300,
+  "maxDuration": 10
+}
