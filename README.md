@@ -1,6 +1,6 @@
 # Hessen Arzt Suche MCP Server
 
-[🇹🇷 Türkçe](#-türkçe) | [🇬🇧 English](#-english)
+[🇩🇪 Deutsch](#-deutsch) | [🇹🇷 Türkçe](#-türkçe) | [🇬🇧 English](#-english)
 
 ---
 
@@ -8,79 +8,77 @@
 
 ### 📋 Übersicht
 
-Ein **MCP (Model Context Protocol) Server** für die **Hessen Arzt Suche API**, der auf **Cloudflare Workers** und **Vercel** bereitgestellt werden kann. Ermöglicht die Suche nach Ärzten, Fachgebieten und Spezialisierungen in Hessen über MCP-fähige Clients.
+Ein universeller **MCP (Model Context Protocol) Server** für die **Hessen Arzt Suche API**, der nativ auf **Vercel (Edge Functions)**, **Cloudflare Workers** und **lokalem Node.js** läuft. Ermöglicht die KI-gestützte Suche nach Ärzten, Fachgebieten und Spezialisierungen in Hessen über MCP-fähige Clients wie Cursor, Claude, Antigravity und VS Code.
 
 ---
 
-### ✅ Funktionen
+### ✅ Funktionen & Tools
 
-| Tool | Beschreibung | Beispiel |
-|------|--------------|----------|
-| `suggest_aerzte` | Schnelle Vorschläge für Ärzte oder Fachgebiete | `{"query": "Kardiologe"}` |
-| `suche_doktor` | Detaillierte Arzt-Suche (Name, Adresse, Telefon, etc.) | `{"query": "Hausarzt Frankfurt"}` |
+| Tool | Beschreibung | Beispiel-Parameter |
+|------|--------------|-------------------|
+| `suggest_aerzte` | Schnelle Vorschläge für Ärzte, Fachgebiete und Spezialisierungen | `{"query": "Kardiologe"}` |
+| `suche_doktor` | Detaillierte Arztsuche mit allen Praxisangaben | `{"query": "Kinderorthopädie Darmstadt"}` |
 
 ---
 
-### 🚀 Schnellstart
+### 🚀 Schnellstart & Lokale Entwicklung
 
-#### 1️⃣ Repository klonen
+#### 1️⃣ Repository klonen & Abhängigkeiten installieren
 ```bash
-git clone https://github.com/<BENUTZERNAME>/hessen-artz-suche-mcp.git
-cd hessen-artz-suche-mcp
-```
-
-#### 2️⃣ Abhängigkeiten installieren
-```bash
+git clone https://github.com/akgngr/hessen-artz-suche.git
+cd hessen-artz-suche
 npm install
 ```
 
----
-
-### 🌍 Bereitstellung
-
-#### **Cloudflare Workers (Kostenlos - 100K Anfragen/Tag)**
-
-##### Automatisch mit GitHub Actions
-1. Gehe zu **GitHub → Settings → Secrets → Actions**
-2. Füge folgende Secrets hinzu:
-   - `CLOUDFLARE_API_TOKEN`: [Hier erstellen](https://dash.cloudflare.com/profile/api-tokens) (Berechtigung: "Edit Cloudflare Workers")
-   - `CLOUDFLARE_ACCOUNT_ID`: Deine Cloudflare Account-ID (in der URL sichtbar: `https://dash.cloudflare.com/<ACCOUNT_ID>/workers`)
-3. Push zu `main` Branch → **Automatische Bereitstellung!**
-
-**🔗 URL:** `https://hessen-artz-suche-mcp.<ACCOUNT_ID>.workers.dev`
-
-##### Manuell
+#### 2️⃣ Tests ausführen (25 automatisierte Tests)
 ```bash
-npm install -g wrangler
-wrangler login
-npm run deploy:cloudflare
+npm test
+```
+
+#### 3️⃣ Lokalen Server starten
+```bash
+npm start
+# Server läuft unter: http://localhost:3000
+# SSE-Endpunkt:      http://localhost:3000/sse
 ```
 
 ---
 
-#### **Vercel (Kostenlos - 100K Anfragen/Monat)**
+### 🌍 Bereitstellung (Deployment)
 
-##### Automatisch mit GitHub Actions
-1. Gehe zu **GitHub → Settings → Secrets → Actions**
-2. Füge folgende Secrets hinzu:
-   - `VERCEL_TOKEN`: [Hier erstellen](https://vercel.com/account/tokens)
-   - `VERCEL_PROJECT_ID`: Deine Vercel Projekt-ID
-   - `VERCEL_ORG_ID`: Deine Vercel Organisations-ID
-3. Push zu `main` Branch → **Automatische Bereitstellung!**
+#### **1. Vercel (Edge Functions - Empfohlen)**
 
-**🔗 URL:** `https://hessen-artz-suche-mcp.vercel.app`
+- **Automatisch mit GitHub Actions**:
+  Füge unter **GitHub → Settings → Secrets → Actions** folgende Secrets hinzu:
+  - `VERCEL_TOKEN`: [Hier erstellen](https://vercel.com/account/tokens)
+  - `VERCEL_PROJECT_ID`: Deine Vercel Projekt-ID
+  - `VERCEL_ORG_ID`: Deine Vercel Organisations-ID
+  - Ein Push in den `main`-Branch löst das Deployment automatisch aus.
 
-##### Manuell
-```bash
-npm install -g vercel
-vercel login
-npm run deploy:vercel
-```
+- **Manuell**:
+  ```bash
+  npm install -g vercel
+  vercel login
+  vercel --prod
+  ```
+  **🔗 Endpunkt-URL:** `https://<DEIN-PROJEKT>.vercel.app/sse`
+
+#### **2. Cloudflare Workers**
+
+- **Automatisch mit GitHub Actions**:
+  Secrets: `CLOUDFLARE_API_TOKEN` und `CLOUDFLARE_ACCOUNT_ID`.
+
+- **Manuell**:
+  ```bash
+  npm run deploy:cloudflare
+  ```
+  **🔗 Endpunkt-URL:** `https://hessen-artz-suche-mcp.<ACCOUNT_ID>.workers.dev/sse`
 
 ---
+
 ### 🔌 MCP Client Verbindung
 
-#### **Cursor AI / VS Code MCP Konfiguration**
+#### **Cursor AI / VS Code MCP Konfiguration (`mcpServers`)**
 ```json
 {
   "mcpServers": {
@@ -91,137 +89,132 @@ npm run deploy:vercel
 }
 ```
 
-#### **Python Beispiel**
+#### **Python MCP Client**
 ```python
 from mcp import Client
 
 client = Client({
-    "url": "https://hessen-artz-suche-mcp.<ACCOUNT>.workers.dev/sse"
+    "url": "https://<DEPLOY_URL>/sse"
 })
 
 # Tools auflisten
 tools = client.list_tools()
 
 # Suche durchführen
-result = client.call_tool("suggest_aerzte", {"query": "Kardiologe"})
+result = client.call_tool("suggest_aerzte", {"query": "Kinderorthopädie"})
 print(result)
 ```
 
 ---
+
 ### 📁 Projektstruktur
 
 ```
-hessen-artz-suche-mcp/
+hessen-artz-suche/
+├── api/
+│   └── index.js              # Vercel Edge Function Entry Point (runtime: "edge")
 ├── src/
-│   └── index.js              # Haupt-MCP-Server-Code (Universal)
+│   ├── index.js              # Universal Web Standards MCP Server (Fetch API)
+│   └── server.js             # Lokaler Node.js HTTP Server Wrapper (npm start)
 ├── .github/
 │   └── workflows/
-│       ├── deploy-cloudflare.yml  # Automatische Cloudflare-Bereitstellung
-│       └── deploy-vercel.yml      # Automatische Vercel-Bereitstellung
-├── .gitignore                 # Git-Ignore-Regeln
-├── .vercelignore              # Vercel-spezifische Ignore-Regeln
-├── .cfignore                  # Cloudflare-spezifische Ignore-Regeln
-├── package.json               # Abhängigkeiten und Skripte
-├── vercel.json                # Vercel-Konfiguration
-├── wrangler.toml              # Cloudflare Worker-Konfiguration
+│       ├── deploy-cloudflare.yml  # Cloudflare Worker Deployment Action
+│       └── deploy-vercel.yml      # Vercel Deployment Action
+├── .vercelignore              # Vercel Ignore-Regeln
+├── .cfignore                  # Cloudflare Ignore-Regeln
+├── package.json               # Skripte und Paketdefinitionen
+├── test.js                    # Vollständige Test-Suite (25 Tests)
+├── vercel.json                # Vercel Konfiguration (Edge rewrites & installCommand)
+├── wrangler.toml              # Cloudflare Worker Konfiguration
 └── README.md                  # Dokumentation
 ```
 
 ---
-### 💡 Wichtige Hinweise
 
-- **Universal Code**: Derselbe `src/index.js` funktioniert auf beiden Plattformen
-- **SSE Transport**: MCP-Protokoll verwendet Server-Sent Events
-- **Kostenlos**: Beide Plattformen bieten ausreichend kostenlose Kontingente
-- **Region**: Für deutsche Nutzer **Frankfurt (fra1)** empfohlen
+### 💡 Technische Highlights
 
----
-### 📊 Kontingente
+- **Duale Transport-Unterstützung**: Unterstützt sowohl das klassische **SSE-Transport-Protokoll** (`GET /sse` mit `event: endpoint`) als auch das moderne **Streamable HTTP** (`POST /sse` / `POST /mcp` mit direkter JSON-RPC Antwort).
+- **Vercel Edge Kompatibel**: 100% Web Standards (`Request`, `Response`, `ReadableStream`) ohne inkompatible Node-Module im Edge-Bundle.
+- **Vollständiges CORS**: Sichere und reibungslose Kommunikation mit Web-Agents und Client-Tools.
+- **Stabile Verbindungen**: Automatische Keep-Alive Kommentare (`: keep-alive\n\n`) verhindern Verbindungstrennungen durch Proxies.
 
-| Plattform | Kostenlos | Anfragen/Tag | Speicher | Timeout |
-|-----------|-----------|--------------|----------|---------|
-| Cloudflare | ✅ Ja | 100K | 128MB | 10s |
-| Vercel | ✅ Ja | 100K/Monat | 300MB | 10s |
-
----
-
----
 ---
 
 ## 🇹🇷 Türkçe
 
 ### 📋 Genel Bakış
 
-**Hessen Arzt Suche API** için **MCP (Model Context Protocol) Server**. **Cloudflare Workers** ve **Vercel** üzerinde barındırılabilir. MCP uyumlu istemciler aracılığıyla Hessen'deki doktorları, uzmanlık alanlarını ve branşları arayabilirsiniz.
+**Hessen Arzt Suche API** için geliştirilmiş, **Vercel (Edge Functions)**, **Cloudflare Workers** ve **yerel Node.js** ortamlarında sorunsuz çalışan evrensel bir **MCP (Model Context Protocol) Sunucusu**. Cursor AI, Claude, Antigravity ve VS Code gibi yapay zeka araçları üzerinden Hessen eyaletindeki doktorları, klinikleri ve uzmanlık alanlarını sorgulamanızı sağlar.
 
 ---
 
-### ✅ Özellikler
+### ✅ Yetenekler & Araçlar (Tools)
 
-| Tool Adı | Açıklama | Örnek Kullanım |
+| Tool Adı | Açıklama | Örnek Parametre |
 |----------|----------|-----------------|
-| `suggest_aerzte` | Hızlı doktor/uzmanlık önerisi arar | `{"query": "Kardiologe"}` |
-| `suche_doktor` | Detaylı doktor arar (ad, adres, telefon, uzmanlık) | `{"query": "Hausarzt Frankfurt"}` |
+| `suggest_aerzte` | Doktor, uzmanlık ve alt branşlar için hızlı arama / tamamlama | `{"query": "Kardiologe"}` |
+| `suche_doktor` | İsim, adres, telefon ve branş içeren detaylı hekim araması | `{"query": "Kinderorthopädie Darmstadt"}` |
 
 ---
-### 🚀 Hızlı Başlangıç
 
-#### 1️⃣ Repository'i Klonla
-```bash
-git clone https://github.com/<KULLANICI_ADI>/hessen-artz-suche-mcp.git
-cd hessen-artz-suche-mcp
-```
+### 🚀 Hızlı Başlangıç & Yerel Geliştirme
 
-#### 2️⃣ Bağımlılıkları Kur
+#### 1️⃣ Projeyi İndirin & Kurun
 ```bash
+git clone https://github.com/akgngr/hessen-artz-suche.git
+cd hessen-artz-suche
 npm install
 ```
 
----
-### 🌍 Deploy Seçenekleri
-
-#### **Cloudflare Workers (Ücretsiz - 100K istek/gün)**
-
-##### GitHub Actions ile Otomatik Deploy
-1. GitHub → **Settings → Secrets → Actions**
-2. Şu secret'leri ekle:
-   - `CLOUDFLARE_API_TOKEN`: [Buradan al](https://dash.cloudflare.com/profile/api-tokens) (Edit Cloudflare Workers izni ile)
-   - `CLOUDFLARE_ACCOUNT_ID`: Cloudflare hesabın Account ID (URL'de görülür: `https://dash.cloudflare.com/<ACCOUNT_ID>/workers`)
-3. `main` branch'ine push et → **Otomatik deploy!**
-
-**🔗 URL:** `https://hessen-artz-suche-mcp.<ACCOUNT_ID>.workers.dev`
-
-##### Manuel Deploy
+#### 2️⃣ Testleri Çalıştırın (25 Otomatik Test)
 ```bash
-npm install -g wrangler
-wrangler login
-npm run deploy:cloudflare
+npm test
+```
+
+#### 3️⃣ Yerel Sunucuyu Başlatın
+```bash
+npm start
+# Sunucu adresi: http://localhost:3000
+# SSE adresi:    http://localhost:3000/sse
 ```
 
 ---
-#### **Vercel (Ücretsiz - 100K istek/ay)**
 
-##### GitHub Actions ile Otomatik Deploy
-1. GitHub → **Settings → Secrets → Actions**
-2. Şu secret'leri ekle:
-   - `VERCEL_TOKEN`: [Buradan al](https://vercel.com/account/tokens)
-   - `VERCEL_PROJECT_ID`: Vercel projesi ID
-   - `VERCEL_ORG_ID`: Vercel organizasyon ID
-3. `main` branch'ine push et → **Otomatik deploy!**
+### 🌍 Canlıya Alma (Deploy)
 
-**🔗 URL:** `https://hessen-artz-suche-mcp.vercel.app`
+#### **1. Vercel (Edge Functions - Önerilen)**
 
-##### Manuel Deploy
-```bash
-npm install -g vercel
-vercel login
-npm run deploy:vercel
-```
+- **GitHub Actions ile Otomatik**:
+  GitHub deponuzda **Settings → Secrets → Actions** kısmına şu değişkenleri ekleyin:
+  - `VERCEL_TOKEN`: [Buradan oluşturun](https://vercel.com/account/tokens)
+  - `VERCEL_PROJECT_ID`: Vercel Proje ID
+  - `VERCEL_ORG_ID`: Vercel Organizasyon ID
+  - `main` dalına push ettiğinizde otomatik deploy edilir.
+
+- **Manuel**:
+  ```bash
+  npm install -g vercel
+  vercel login
+  vercel --prod
+  ```
+  **🔗 URL:** `https://<PROJE-ADINIZ>.vercel.app/sse`
+
+#### **2. Cloudflare Workers**
+
+- **GitHub Actions ile Otomatik**:
+  Secrets: `CLOUDFLARE_API_TOKEN` ve `CLOUDFLARE_ACCOUNT_ID`.
+
+- **Manuel**:
+  ```bash
+  npm run deploy:cloudflare
+  ```
+  **🔗 URL:** `https://hessen-artz-suche-mcp.<ACCOUNT_ID>.workers.dev/sse`
 
 ---
-### 🔌 MCP Client Bağlantısı
 
-#### **Cursor AI / VS Code MCP Yapılandırması**
+### 🔌 MCP İstemci Yapılandırması
+
+#### **Cursor AI / VS Code MCP (`mcpServers`)**
 ```json
 {
   "mcpServers": {
@@ -232,135 +225,132 @@ npm run deploy:vercel
 }
 ```
 
-#### **Python Örneği**
+#### **Python MCP İstemcisi**
 ```python
 from mcp import Client
 
 client = Client({
-    "url": "https://hessen-artz-suche-mcp.<ACCOUNT>.workers.dev/sse"
+    "url": "https://<DEPLOY_URL>/sse"
 })
 
-# Tool'ları listele
+# Araçları listele
 tools = client.list_tools()
 
-# Arama yap
-result = client.call_tool("suggest_aerzte", {"query": "Kardiologe"})
+# Arama gerçekleştir
+result = client.call_tool("suggest_aerzte", {"query": "Kinderorthopädie"})
 print(result)
 ```
 
 ---
-### 📁 Proje Yapısı
+
+### 📁 Proje Mimarisi
 
 ```
-hessen-artz-suche-mcp/
+hessen-artz-suche/
+├── api/
+│   └── index.js              # Vercel Edge Function giriş noktası (runtime: "edge")
 ├── src/
-│   └── index.js              # Ana MCP Server kodu (Universal)
+│   ├── index.js              # Evrensel Web Standardı MCP Sunucusu (Fetch API)
+│   └── server.js             # Yerel Node.js HTTP sunucusu (npm start)
 ├── .github/
 │   └── workflows/
-│       ├── deploy-cloudflare.yml  # Otomatik Cloudflare deploy
-│       └── deploy-vercel.yml      # Otomatik Vercel deploy
-├── .gitignore                 # Git ignore kuralları
-├── .vercelignore              # Vercel ignore kuralları
-├── .cfignore                  # Cloudflare ignore kuralları
-├── package.json               # Bağımlılıklar ve scriptler
-├── vercel.json                # Vercel yapılandırması
+│       ├── deploy-cloudflare.yml  # Cloudflare Worker otomatik deploy
+│       └── deploy-vercel.yml      # Vercel otomatik deploy
+├── .vercelignore              # Vercel dosya filtreleri
+├── .cfignore                  # Cloudflare dosya filtreleri
+├── package.json               # Paket ve script tanımları
+├── test.js                    # Kapsamlı test paketi (25 test)
+├── vercel.json                # Vercel yapılandırması (Edge rewrites & installCommand)
 ├── wrangler.toml              # Cloudflare Worker yapılandırması
 └── README.md                  # Dokümantasyon
 ```
 
 ---
-### 💡 Önemli Notlar
 
-- **Universal Kod**: Aynı `src/index.js` her iki platformda da çalışır
-- **SSE Transport**: MCP protokolü için Server-Sent Events kullanılır
-- **Ücretsiz**: Her iki platformda da yeterli ücretsiz kota
-- **Bölge**: Almanya için **Frankfurt (fra1)** önerilir
+### 💡 Teknik Üstünlükler
 
----
-### 📊 Kotalar
+- **Çift Taşıma Desteği (Dual Transport)**: Hem klasik **SSE Protokolü** (`GET /sse`) hem de modern **Streamable HTTP** (`POST /sse` / `POST /mcp`) desteklenir.
+- **Vercel Edge Uyumluluğu**: Saf Web Standardı (`Request`, `Response`, `ReadableStream`) kullanılarak derleme ve çalışma zamanı hataları engellenmiştir.
+- **Kesintisiz Akış**: Periyodik keep-alive sinyalleri ile bağlantı düşmeleri önlenir.
+- **Tam CORS & Discovery Desteği**: İstemcilerin gönderdiği `OPTIONS` ve `/.well-known/*` istekleri temiz yanıtlanır.
 
-| Platform | Ücretsiz | Günlük Limit | Bellek | Timeout |
-|----------|----------|--------------|---------|---------|
-| Cloudflare | ✅ Evet | 100K/gün | 128MB | 10sn |
-| Vercel | ✅ Evet | 100K/ay | 300MB | 10sn |
-
----
----
 ---
 
 ## 🇬🇧 English
 
 ### 📋 Overview
 
-An **MCP (Model Context Protocol) Server** for the **Hessen Arzt Suche API**, deployable on **Cloudflare Workers** and **Vercel**. Enables searching for doctors, specializations, and medical fields in Hessen through MCP-compatible clients.
+A universal **MCP (Model Context Protocol) Server** for the **Hessen Arzt Suche API**, built to run natively on **Vercel (Edge Functions)**, **Cloudflare Workers**, and **local Node.js**. It enables AI clients such as Cursor, Claude, Antigravity, and VS Code to search for doctors, medical fields, and healthcare providers in Hessen, Germany.
 
 ---
-### ✅ Features
 
-| Tool | Description | Example |
-|------|-------------|---------|
-| `suggest_aerzte` | Quick suggestions for doctors or specializations | `{"query": "Kardiologe"}` |
-| `suche_doktor` | Detailed doctor search (name, address, phone, etc.) | `{"query": "Hausarzt Frankfurt"}` |
+### ✅ Features & Tools
+
+| Tool | Description | Example Query |
+|------|-------------|---------------|
+| `suggest_aerzte` | Fast autocomplete suggestions for doctors and specialties | `{"query": "Kardiologe"}` |
+| `suche_doktor` | Detailed doctor search with full practice and contact information | `{"query": "Kinderorthopädie Darmstadt"}` |
 
 ---
-### 🚀 Quick Start
 
-#### 1️⃣ Clone the Repository
-```bash
-git clone https://github.com/<USERNAME>/hessen-artz-suche-mcp.git
-cd hessen-artz-suche-mcp
-```
+### 🚀 Quick Start & Local Testing
 
-#### 2️⃣ Install Dependencies
+#### 1️⃣ Clone and Install
 ```bash
+git clone https://github.com/akgngr/hessen-artz-suche.git
+cd hessen-artz-suche
 npm install
 ```
 
----
-### 🌍 Deployment Options
-
-#### **Cloudflare Workers (Free - 100K requests/day)**
-
-##### Automatic Deployment with GitHub Actions
-1. Go to **GitHub → Settings → Secrets → Actions**
-2. Add the following secrets:
-   - `CLOUDFLARE_API_TOKEN`: [Get it here](https://dash.cloudflare.com/profile/api-tokens) (Edit Cloudflare Workers permission)
-   - `CLOUDFLARE_ACCOUNT_ID`: Your Cloudflare Account ID (visible in URL: `https://dash.cloudflare.com/<ACCOUNT_ID>/workers`)
-3. Push to `main` branch → **Automatic deployment!**
-
-**🔗 URL:** `https://hessen-artz-suche-mcp.<ACCOUNT_ID>.workers.dev`
-
-##### Manual Deployment
+#### 2️⃣ Run Test Suite (25 Automated Tests)
 ```bash
-npm install -g wrangler
-wrangler login
-npm run deploy:cloudflare
+npm test
+```
+
+#### 3️⃣ Start Local Server
+```bash
+npm start
+# Server running at: http://localhost:3000
+# SSE endpoint:      http://localhost:3000/sse
 ```
 
 ---
-#### **Vercel (Free - 100K requests/month)**
 
-##### Automatic Deployment with GitHub Actions
-1. Go to **GitHub → Settings → Secrets → Actions**
-2. Add the following secrets:
-   - `VERCEL_TOKEN`: [Get it here](https://vercel.com/account/tokens)
-   - `VERCEL_PROJECT_ID`: Your Vercel Project ID
-   - `VERCEL_ORG_ID`: Your Vercel Organization ID
-3. Push to `main` branch → **Automatic deployment!**
+### 🌍 Deployment
 
-**🔗 URL:** `https://hessen-artz-suche-mcp.vercel.app`
+#### **1. Vercel (Edge Functions - Recommended)**
 
-##### Manual Deployment
-```bash
-npm install -g vercel
-vercel login
-npm run deploy:vercel
-```
+- **Automatic via GitHub Actions**:
+  Add the following secrets in **GitHub → Settings → Secrets → Actions**:
+  - `VERCEL_TOKEN`: [Create here](https://vercel.com/account/tokens)
+  - `VERCEL_PROJECT_ID`: Your Vercel project ID
+  - `VERCEL_ORG_ID`: Your Vercel organization ID
+  - Pushing to `main` branch will automatically deploy.
+
+- **Manual**:
+  ```bash
+  npm install -g vercel
+  vercel login
+  vercel --prod
+  ```
+  **🔗 Endpoint URL:** `https://<YOUR-PROJECT>.vercel.app/sse`
+
+#### **2. Cloudflare Workers**
+
+- **Automatic via GitHub Actions**:
+  Secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
+
+- **Manual**:
+  ```bash
+  npm run deploy:cloudflare
+  ```
+  **🔗 Endpoint URL:** `https://hessen-artz-suche-mcp.<ACCOUNT_ID>.workers.dev/sse`
 
 ---
+
 ### 🔌 MCP Client Connection
 
-#### **Cursor AI / VS Code MCP Configuration**
+#### **Cursor AI / VS Code Configuration (`mcpServers`)**
 ```json
 {
   "mcpServers": {
@@ -371,83 +361,51 @@ npm run deploy:vercel
 }
 ```
 
-#### **Python Example**
+#### **Python MCP Client**
 ```python
 from mcp import Client
 
 client = Client({
-    "url": "https://hessen-artz-suche-mcp.<ACCOUNT>.workers.dev/sse"
+    "url": "https://<DEPLOY_URL>/sse"
 })
 
 # List tools
 tools = client.list_tools()
 
-# Perform search
-result = client.call_tool("suggest_aerzte", {"query": "Kardiologe"})
+# Execute search
+result = client.call_tool("suggest_aerzte", {"query": "Kinderorthopädie"})
 print(result)
 ```
 
 ---
+
 ### 📁 Project Structure
 
 ```
-hessen-artz-suche-mcp/
+hessen-artz-suche/
+├── api/
+│   └── index.js              # Vercel Edge Function entry point (runtime: "edge")
 ├── src/
-│   └── index.js              # Main MCP Server code (Universal)
+│   ├── index.js              # Universal Web Standards MCP Server (Fetch API)
+│   └── server.js             # Local Node.js HTTP server wrapper (npm start)
 ├── .github/
 │   └── workflows/
-│       ├── deploy-cloudflare.yml  # Automatic Cloudflare deployment
-│       └── deploy-vercel.yml      # Automatic Vercel deployment
-├── .gitignore                 # Git ignore rules
-├── .vercelignore              # Vercel ignore rules
-├── .cfignore                  # Cloudflare ignore rules
-├── package.json               # Dependencies and scripts
-├── vercel.json                # Vercel configuration
+│       ├── deploy-cloudflare.yml  # Cloudflare deployment action
+│       └── deploy-vercel.yml      # Vercel deployment action
+├── .vercelignore              # Vercel file exclusion rules
+├── .cfignore                  # Cloudflare file exclusion rules
+├── package.json               # Package configuration and scripts
+├── test.js                    # Automated test suite (25 test cases)
+├── vercel.json                # Vercel configuration (Edge rewrites & installCommand)
 ├── wrangler.toml              # Cloudflare Worker configuration
 └── README.md                  # Documentation
 ```
 
 ---
-### 💡 Important Notes
 
-- **Universal Code**: The same `src/index.js` works on both platforms
-- **SSE Transport**: MCP protocol uses Server-Sent Events
-- **Free Tier**: Both platforms offer sufficient free quotas
-- **Region**: For German users, **Frankfurt (fra1)** is recommended
+### 💡 Technical Architecture
 
----
-### 📊 Quotas Comparison
-
-| Platform | Free | Requests/Day | Memory | Timeout |
-|----------|------|--------------|--------|---------|
-| Cloudflare | ✅ Yes | 100K/day | 128MB | 10s |
-| Vercel | ✅ Yes | 100K/month | 300MB | 10s |
-
----
----
-## 📞 Support
-
-If you encounter any issues or have questions:
-- **Cloudflare Workers**: Check logs with `wrangler tail`
-- **Vercel**: Check logs with `vercel logs`
-- **General**: Open an issue on GitHub
-
----
-## 🎯 Usage Examples
-
-### Doctor Suggestions
-```bash
-# Via MCP client
-call_tool suggest_aerzte --query "Hausarzt"
-```
-
-### Detailed Search
-```bash
-call_tool suche_doktor --query "Kardiologe Berlin"
-```
-
----
-**Developed for the Hessen Arzt Suche API**
-**Compatible with MCP protocol**
-**Works seamlessly on both Cloudflare Workers and Vercel**
-```
+- **Dual Protocol Support**: Implements both **SSE (2024-11-05)** (`GET /sse` + session stream) and modern **Streamable HTTP** (`POST /sse` / `POST /mcp` with direct JSON-RPC responses).
+- **100% Edge Compliant**: Built strictly on Web Standard APIs (`Request`, `Response`, `ReadableStream`) to guarantee instant cold starts and global edge execution.
+- **Robust Error & Discovery Handling**: Gracefully handles OAuth and discovery probes (`/.well-known/*`) with standard 404 responses instead of 500 errors.
+- **Full CORS Enabled**: Accessible from any web agent, browser, or remote MCP client.
