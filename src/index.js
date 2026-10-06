@@ -1,7 +1,6 @@
 // ============================================
 // MCP SERVER - Hessen Arzt Suche
 // Universal Server (Cloudflare Worker + Vercel + Node.js)
-// SSE Transport for MCP
 // ============================================
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -41,7 +40,7 @@ const tools = [
   },
   {
     name: "suche_doktor",
-    description: "Detailed doctor search with all information (name, address, phone, specializations)",
+    description: "Detailed doctor search with all information",
     inputSchema: {
       type: "object",
       properties: {
@@ -109,31 +108,45 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
 const transport = new SseServerTransport();
 await server.connect(transport);
 
-// Universal Handler - Works with Cloudflare Worker, Vercel, and Node.js
-const handler = async (request) => {
+// Vercel/Cloudflare Handler
+export default async function handler(request) {
   const url = new URL(request.url);
+
+  // CORS headers for Vercel
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type"
+  };
+
+  // Handle OPTIONS for CORS preflight
+  if (request.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    });
+  }
 
   // SSE endpoint for MCP
   if (url.pathname === "/sse" || url.pathname === "/mcp") {
-    return transport.handleRequest(request);
+    const response = await transport.handleRequest(request);
+    // Add CORS headers to SSE response
+    for (const [key, value] of Object.entries(corsHeaders)) {
+      response.headers.set(key, value);
+    }
+    return response;
   }
 
   // Health check
   if (url.pathname === "/" || url.pathname === "/health") {
     return new Response("Hessen Arzt Suche MCP Server - Use /sse or /mcp for MCP connection", {
       status: 200,
-      headers: { "Content-Type": "text/plain" }
+      headers: { ...corsHeaders, "Content-Type": "text/plain" }
     });
   }
 
-  return new Response("Not Found", { status: 404 });
-};
-
-// Export for different platforms
-try {
-  // Cloudflare Worker
-  export default { fetch: handler };
-} catch (e) {
-  // Node.js / Vercel
-  export { handler as default };
+  return new Response("Not Found", {
+    status: 404,
+    headers: corsHeaders
+  });
 }
