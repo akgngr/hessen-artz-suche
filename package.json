@@ -7,7 +7,7 @@
     "dev": "wrangler dev",
     "deploy:cloudflare": "wrangler deploy",
     "deploy:vercel": "vercel --prod",
-    "start": "node src/index.js",
+    "start": "node src/server.js",
     "test": "node test.js"
   },
   "dependencies": {
