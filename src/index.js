@@ -5,7 +5,7 @@
 // ============================================
 
 const SERVER_NAME = "hessen-artz-suche-mcp";
-const SERVER_VERSION = "1.0.0";
+const SERVER_VERSION = "1.1.0";
 const API_URL = "https://arztsuchehessen.de";
 
 // CORS Headers
@@ -19,14 +19,28 @@ const CORS_HEADERS = {
 // Available MCP Tools
 const TOOLS = [
   {
-    name: "suggest_aerzte",
-    description: "Search for doctor suggestions, specializations, or general medicine in Hessen",
+    name: "suggest_plz_ort",
+    description: "Search for postal codes (PLZ) and city names in Hessen to get exact geographical coordinates (lat/lon) for location radius search",
     inputSchema: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "Search query (min. 2 characters, e.g. 'Kardiologe', 'Müller', 'Frankfurt')"
+          description: "City name or postal code in Hessen (min. 2 characters, e.g. 'Darmstadt', '64521', 'Groß-Gerau', 'Frankfurt')"
+        }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "suggest_aerzte",
+    description: "Search for doctor suggestions, specializations (Fachgebiet), sub-specialties (Schwerpunkt), or additional designations (Zusatzbezeichnung) in Hessen",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Search query (min. 2 characters, e.g. 'Kinderorthopädie', 'Orthopädie', 'Kardiologe', 'Müller')"
         }
       },
       required: ["query"]
@@ -34,21 +48,49 @@ const TOOLS = [
   },
   {
     name: "suche_doktor",
-    description: "Detailed doctor search in Hessen (name, address, phone, specializations)",
+    description: "Comprehensive doctor and specialist search in Hessen with location, radius (km), specialty filtering, and keyword search",
     inputSchema: {
       type: "object",
       properties: {
+        location: {
+          type: "string",
+          description: "City name or postal code in Hessen (e.g. 'Darmstadt', '64521', 'Groß-Gerau', 'Frankfurt am Main', 'Wiesbaden')"
+        },
+        radius: {
+          type: "number",
+          description: "Search radius in kilometers around the location (e.g. 0, 5, 10, 15, 20, 25, 50). Default is 5."
+        },
         query: {
           type: "string",
-          description: "Search query (e.g. doctor name, city, specialty)"
+          description: "Doctor name, specialty keyword, or search query (e.g. 'Kinderorthopädie', 'Orthopädie', 'Hausarzt', 'Kardiologe', 'Müller')"
+        },
+        lat: {
+          type: "string",
+          description: "Optional explicit latitude (e.g. '49.872356')"
+        },
+        lon: {
+          type: "string",
+          description: "Optional explicit longitude (e.g. '8.650903')"
+        },
+        doctorType: {
+          type: "string",
+          description: "Optional doctor type filter: 'doctor', 'psychotherapist', or '' (all)"
+        },
+        professionDoctor: {
+          type: "array",
+          items: { type: "string" },
+          description: "Optional profession / specialty codes (e.g. ['10'] for Allgemeinmedizin)"
+        },
+        limit: {
+          type: "number",
+          description: "Maximum number of doctor results to return (default: 25)"
         }
-      },
-      required: ["query"]
+      }
     }
   }
 ];
 
-// Helper: HTTP Request to Hessen Arzt API
+// Helper: HTTP Request to Hessen Arzt JSON API
 async function apiRequest(endpoint, data) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 12000);
@@ -75,6 +117,184 @@ async function apiRequest(endpoint, data) {
   }
 }
 
+// Helper: Resolve Location to Coordinates
+async function resolveLocation(locationQuery) {
+  if (!locationQuery || typeof locationQuery !== "string") return null;
+
+  // Extract clean query term (if user wrote "64521 Groß-Gerau", try "64521" first then "Groß-Gerau")
+  const trimmed = locationQuery.trim();
+  const zipMatch = trimmed.match(/\b\d{5}\b/);
+  const searchTerm = zipMatch ? zipMatch[0] : trimmed;
+
+  try {
+    const locations = await apiRequest("/api/suggestPlzAndOrt", { q: searchTerm });
+    if (Array.isArray(locations) && locations.length > 0) {
+      const loc = locations[0];
+      return {
+        lat: loc.lat,
+        lon: loc.lon,
+        value: `${loc.plz} ${loc.ort}`,
+        plz: loc.plz,
+        ort: loc.ort
+      };
+    }
+  } catch (e) {
+    // Fallback: retry with full string if different
+    if (searchTerm !== trimmed) {
+      try {
+        const locations = await apiRequest("/api/suggestPlzAndOrt", { q: trimmed });
+        if (Array.isArray(locations) && locations.length > 0) {
+          const loc = locations[0];
+          return {
+            lat: loc.lat,
+            lon: loc.lon,
+            value: `${loc.plz} ${loc.ort}`,
+            plz: loc.plz,
+            ort: loc.ort
+          };
+        }
+      } catch (err) {
+        // Ignore fallback errors
+      }
+    }
+  }
+
+  return null;
+}
+
+// Helper: Comprehensive Search via /api/suche FormData Endpoint
+async function searchDoctors(args = {}) {
+  const {
+    location,
+    radius = 5,
+    query,
+    lat,
+    lon,
+    doctorType = "",
+    professionDoctor,
+    limit = 25
+  } = args;
+
+  let targetLat = lat;
+  let targetLon = lon;
+  let targetLocValue = location || "";
+
+  // If location string provided without lat/lon, resolve coordinates
+  if ((!targetLat || !targetLon) && location) {
+    const resolved = await resolveLocation(location);
+    if (resolved) {
+      targetLat = resolved.lat;
+      targetLon = resolved.lon;
+      targetLocValue = resolved.value;
+    }
+  }
+
+  const formData = new FormData();
+
+  if (targetLat && targetLon) {
+    formData.append("location[lat]", String(targetLat));
+    formData.append("location[lon]", String(targetLon));
+    formData.append("location[value]", targetLocValue || `${targetLat}, ${targetLon}`);
+    formData.append("radius", String(radius));
+  }
+
+  formData.append("doctorType", doctorType || "");
+
+  if (Array.isArray(professionDoctor)) {
+    for (const prof of professionDoctor) {
+      formData.append("professionDoctor[]", String(prof));
+    }
+  } else if (professionDoctor) {
+    formData.append("professionDoctor[]", String(professionDoctor));
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+  let data;
+  try {
+    const response = await fetch(`${API_URL}/api/suche`, {
+      method: "POST",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/plain, */*"
+      },
+      body: formData,
+      signal: controller.signal
+    });
+
+    if (!response.ok) {
+      throw new Error(`Search API responded with status: ${response.status} ${response.statusText}`);
+    }
+
+    data = await response.json();
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  let items = data.items || [];
+
+  // Filter items by query keywords (matches doctor name, titles, specializations)
+  if (query && typeof query === "string" && query.trim().length > 0) {
+    const qTrimmed = query.trim().toLowerCase();
+    const queryWords = qTrimmed.split(/\s+/).filter(w => w.length > 1);
+
+    // 1. Strict match: all words match headline or description
+    let filtered = items.filter(item => {
+      const fullText = `${item.headline || ""} ${item.description || ""}`.toLowerCase();
+      return queryWords.every(word => fullText.includes(word));
+    });
+
+    // 2. Partial/fuzzy fallback if strict match yields 0 results (e.g. specific keywords like "Kinderorthopädie" vs "Orthopädie")
+    if (filtered.length === 0 && queryWords.length > 1) {
+      filtered = items.filter(item => {
+        const fullText = `${item.headline || ""} ${item.description || ""}`.toLowerCase();
+        return queryWords.some(word => fullText.includes(word));
+      });
+    }
+
+    // 3. Fallback for sub-specialties: if query contains "orthop", match all orthopedics
+    if (filtered.length === 0 && qTrimmed.includes("orthop")) {
+      filtered = items.filter(item => {
+        const fullText = `${item.headline || ""} ${item.description || ""}`.toLowerCase();
+        return fullText.includes("orthop");
+      });
+    }
+
+    if (filtered.length > 0) {
+      items = filtered;
+    }
+  }
+
+  const limitedItems = items.slice(0, limit).map(item => ({
+    name: item.headline || "Unbekannt",
+    distance: item.distance !== undefined ? `${item.distance} km` : undefined,
+    specialty: item.description?.trim() || "Keine Angabe",
+    address: item.address ? {
+      street: item.address.street || "",
+      zip: item.address.zip || "",
+      place: item.address.place || "",
+      placeDistrict: item.address.placeDistrict || null,
+      phone: item.address.phone || null,
+      mobile: item.address.mobile || null,
+      fax: item.address.fax || null
+    } : null,
+    profileUrl: item.href || null
+  }));
+
+  return {
+    totalFound: items.length,
+    returnedCount: limitedItems.length,
+    searchCriteria: {
+      location: targetLocValue || null,
+      coordinates: targetLat && targetLon ? { lat: targetLat, lon: targetLon } : null,
+      radiusKm: radius,
+      query: query || null
+    },
+    doctors: limitedItems
+  };
+}
+
 // Helper: Process JSON-RPC 2.0 Message
 async function handleJsonRpcMessage(message) {
   if (!message || typeof message !== "object") {
@@ -89,7 +309,6 @@ async function handleJsonRpcMessage(message) {
 
   // Handle Notifications (messages without id)
   if (id === undefined || id === null) {
-    // Client acknowledges initialization
     if (method === "notifications/initialized") {
       return null;
     }
@@ -135,20 +354,16 @@ async function handleJsonRpcMessage(message) {
     case "tools/call": {
       const toolName = params?.name;
       const args = params?.arguments || {};
-      const query = args.query || "";
 
       try {
         let apiResult;
-        if (toolName === "suggest_aerzte") {
-          apiResult = await apiRequest("/api/suggestAerzteAndFgbAndSpAndGenAndZus", { q: query });
+
+        if (toolName === "suggest_plz_ort") {
+          apiResult = await apiRequest("/api/suggestPlzAndOrt", { q: args.query || "" });
+        } else if (toolName === "suggest_aerzte") {
+          apiResult = await apiRequest("/api/suggestAerzteAndFgbAndSpAndGenAndZus", { q: args.query || "" });
         } else if (toolName === "suche_doktor") {
-          // Try search endpoint, fall back to suggestion if search times out or errors
-          try {
-            apiResult = await apiRequest("/api/suche", { q: query });
-          } catch (searchErr) {
-            // Fallback to suggest if search endpoint fails
-            apiResult = await apiRequest("/api/suggestAerzteAndFgbAndSpAndGenAndZus", { q: query });
-          }
+          apiResult = await searchDoctors(args);
         } else {
           return {
             jsonrpc: "2.0",

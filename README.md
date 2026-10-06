@@ -8,16 +8,24 @@
 
 ### 📋 Übersicht
 
-Ein universeller **MCP (Model Context Protocol) Server** für die **Hessen Arzt Suche API**, der nativ auf **Vercel (Edge Functions)**, **Cloudflare Workers** und **lokalem Node.js** läuft. Ermöglicht die KI-gestützte Suche nach Ärzten, Fachgebieten und Spezialisierungen in Hessen über MCP-fähige Clients wie Cursor, Claude, Antigravity und VS Code.
+Ein universeller **MCP (Model Context Protocol) Server** für die **Hessen Arzt Suche API**, der nativ auf **Vercel (Edge Functions)**, **Cloudflare Workers** und **lokalem Node.js** läuft. Ermöglicht die KI-gestützte Suche nach Ärzten, Praxen, Fachgebieten und Umkreisradien (km) in Hessen über MCP-fähige Clients wie Cursor, Claude, Antigravity und VS Code.
 
 ---
 
 ### ✅ Funktionen & Tools
 
-| Tool | Beschreibung | Beispiel-Parameter |
-|------|--------------|-------------------|
-| `suggest_aerzte` | Schnelle Vorschläge für Ärzte, Fachgebiete und Spezialisierungen | `{"query": "Kardiologe"}` |
-| `suche_doktor` | Detaillierte Arztsuche mit allen Praxisangaben | `{"query": "Kinderorthopädie Darmstadt"}` |
+| Tool | Beschreibung | Parameter |
+|------|--------------|-----------|
+| `suggest_plz_ort` | Postleitzahlen & Ortsnamen in Hessen suchen (liefert exakte GPS-Koordinaten `lat`/`lon`) | `{"query": "Groß-Gerau"}` oder `{"query": "64283"}` |
+| `suggest_aerzte` | Schnelle Vorschläge für Ärzte, Fachgebiete (FGB), Schwerpunkte (SP) und Zusatzbezeichnungen | `{"query": "Kinderorthopädie"}` |
+| `suche_doktor` | Umfassende Arztsuche mit Standortauflösung, Umkreisradius (km), Fachgebiet und Stichwortsuche | `{"location": "64521 Groß-Gerau", "radius": 5, "query": "Orthopädie"}` |
+
+#### 🔍 `suche_doktor` Parameter-Details:
+- `location` *(string, optional)*: Stadtname oder PLZ (z. B. `"Darmstadt"`, `"64521 Groß-Gerau"`, `"Frankfurt"`). Koordinaten werden automatisch ermittelt.
+- `radius` *(number, optional)*: Suchradius in Kilometern (z. B. `0`, `5`, `10`, `15`, `20`, `25`, `50`). Standard: `5`.
+- `query` *(string, optional)*: Arztname oder Fachgebietsstichwort (z. B. `"Kinderorthopädie"`, `"Hausarzt"`, `"Müller"`).
+- `professionDoctor` *(array/string, optional)*: Fachgruppencodes (z. B. `["10"]` für Allgemeinmedizin).
+- `limit` *(number, optional)*: Maximale Anzahl an Ergebnissen (Standard: `25`).
 
 ---
 
@@ -30,7 +38,7 @@ cd hessen-artz-suche
 npm install
 ```
 
-#### 2️⃣ Tests ausführen (25 automatisierte Tests)
+#### 2️⃣ Tests ausführen (33 automatisierte Tests)
 ```bash
 npm test
 ```
@@ -97,11 +105,12 @@ client = Client({
     "url": "https://<DEPLOY_URL>/sse"
 })
 
-# Tools auflisten
-tools = client.list_tools()
-
-# Suche durchführen
-result = client.call_tool("suggest_aerzte", {"query": "Kinderorthopädie"})
+# Umkreissuche: 5km um Groß-Gerau
+result = client.call_tool("suche_doktor", {
+    "location": "64521 Groß-Gerau",
+    "radius": 5,
+    "query": "Orthopädie"
+})
 print(result)
 ```
 
@@ -114,7 +123,7 @@ hessen-artz-suche/
 ├── api/
 │   └── index.js              # Vercel Edge Function Entry Point (runtime: "edge")
 ├── src/
-│   ├── index.js              # Universal Web Standards MCP Server (Fetch API)
+│   ├── index.js              # Universal Web Standards MCP Server (Fetch API & FormData)
 │   └── server.js             # Lokaler Node.js HTTP Server Wrapper (npm start)
 ├── .github/
 │   └── workflows/
@@ -123,7 +132,7 @@ hessen-artz-suche/
 ├── .vercelignore              # Vercel Ignore-Regeln
 ├── .cfignore                  # Cloudflare Ignore-Regeln
 ├── package.json               # Skripte und Paketdefinitionen
-├── test.js                    # Vollständige Test-Suite (25 Tests)
+├── test.js                    # Vollständige Test-Suite (33 Tests)
 ├── vercel.json                # Vercel Konfiguration (Edge rewrites & installCommand)
 ├── wrangler.toml              # Cloudflare Worker Konfiguration
 └── README.md                  # Dokumentation
@@ -131,29 +140,28 @@ hessen-artz-suche/
 
 ---
 
-### 💡 Technische Highlights
-
-- **Duale Transport-Unterstützung**: Unterstützt sowohl das klassische **SSE-Transport-Protokoll** (`GET /sse` mit `event: endpoint`) als auch das moderne **Streamable HTTP** (`POST /sse` / `POST /mcp` mit direkter JSON-RPC Antwort).
-- **Vercel Edge Kompatibel**: 100% Web Standards (`Request`, `Response`, `ReadableStream`) ohne inkompatible Node-Module im Edge-Bundle.
-- **Vollständiges CORS**: Sichere und reibungslose Kommunikation mit Web-Agents und Client-Tools.
-- **Stabile Verbindungen**: Automatische Keep-Alive Kommentare (`: keep-alive\n\n`) verhindern Verbindungstrennungen durch Proxies.
-
----
-
 ## 🇹🇷 Türkçe
 
 ### 📋 Genel Bakış
 
-**Hessen Arzt Suche API** için geliştirilmiş, **Vercel (Edge Functions)**, **Cloudflare Workers** ve **yerel Node.js** ortamlarında sorunsuz çalışan evrensel bir **MCP (Model Context Protocol) Sunucusu**. Cursor AI, Claude, Antigravity ve VS Code gibi yapay zeka araçları üzerinden Hessen eyaletindeki doktorları, klinikleri ve uzmanlık alanlarını sorgulamanızı sağlar.
+**Hessen Arzt Suche API** için geliştirilmiş, **Vercel (Edge Functions)**, **Cloudflare Workers** ve **yerel Node.js** ortamlarında çalışan evrensel bir **MCP (Model Context Protocol) Sunucusu**. Hessen eyaletindeki doktorları, klinikleri, uzmanlıkları ve **konum bazlı mesafe yarıçapı (km)** filtrelerini yapay zeka araçları üzerinden kolayca sorgulamanızı sağlar.
 
 ---
 
 ### ✅ Yetenekler & Araçlar (Tools)
 
-| Tool Adı | Açıklama | Örnek Parametre |
-|----------|----------|-----------------|
-| `suggest_aerzte` | Doktor, uzmanlık ve alt branşlar için hızlı arama / tamamlama | `{"query": "Kardiologe"}` |
-| `suche_doktor` | İsim, adres, telefon ve branş içeren detaylı hekim araması | `{"query": "Kinderorthopädie Darmstadt"}` |
+| Tool Adı | Açıklama | Parametreler |
+|----------|----------|--------------|
+| `suggest_plz_ort` | Posta kodu (PLZ) ve ilçe/şehir araması yaparak tam GPS koordinatlarını (`lat`/`lon`) döner | `{"query": "Groß-Gerau"}` veya `{"query": "64283"}` |
+| `suggest_aerzte` | Doktor isimleri, uzmanlık branşları (Fachgebiet) ve ek ihtisaslar (Zusatzbezeichnung) için öneriler | `{"query": "Kinderorthopädie"}` |
+| `suche_doktor` | Konum, yarıçap (km), branş ve anahtar kelime destekli detaylı hekim araması | `{"location": "Darmstadt", "radius": 5, "query": "Kinderorthopädie"}` |
+
+#### 🔍 `suche_doktor` Parametreleri:
+- `location` *(string, opsiyonel)*: Şehir adı veya posta kodu (örn: `"Darmstadt"`, `"64521 Groß-Gerau"`, `"Frankfurt"`). Koordinatlar otomatik tespit edilir.
+- `radius` *(number, opsiyonel)*: Arama yarıçapı km (örn: `0`, `5`, `10`, `15`, `20`, `25`, `50`). Varsayılan: `5`.
+- `query` *(string, opsiyonel)*: Doktor adı veya branş filtresi (örn: `"Kinderorthopädie"`, `"Hausarzt"`, `"Müller"`).
+- `professionDoctor` *(array/string, opsiyonel)*: Meslek/branş kodu (örn: `["10"]` - Genel Tıp).
+- `limit` *(number, opsiyonel)*: Döndürülecek maksimum sonuç sayısı (varsayılan: `25`).
 
 ---
 
@@ -166,7 +174,7 @@ cd hessen-artz-suche
 npm install
 ```
 
-#### 2️⃣ Testleri Çalıştırın (25 Otomatik Test)
+#### 2️⃣ Testleri Çalıştırın (33 Otomatik Test)
 ```bash
 npm test
 ```
@@ -233,11 +241,12 @@ client = Client({
     "url": "https://<DEPLOY_URL>/sse"
 })
 
-# Araçları listele
-tools = client.list_tools()
-
-# Arama gerçekleştir
-result = client.call_tool("suggest_aerzte", {"query": "Kinderorthopädie"})
+# Darmstadt ve 5km çevresinde Çocuk Ortopedisi ara
+result = client.call_tool("suche_doktor", {
+    "location": "Darmstadt",
+    "radius": 5,
+    "query": "Kinderorthopädie"
+})
 print(result)
 ```
 
@@ -250,7 +259,7 @@ hessen-artz-suche/
 ├── api/
 │   └── index.js              # Vercel Edge Function giriş noktası (runtime: "edge")
 ├── src/
-│   ├── index.js              # Evrensel Web Standardı MCP Sunucusu (Fetch API)
+│   ├── index.js              # Evrensel Web Standardı MCP Sunucusu (Fetch API & FormData)
 │   └── server.js             # Yerel Node.js HTTP sunucusu (npm start)
 ├── .github/
 │   └── workflows/
@@ -259,7 +268,7 @@ hessen-artz-suche/
 ├── .vercelignore              # Vercel dosya filtreleri
 ├── .cfignore                  # Cloudflare dosya filtreleri
 ├── package.json               # Paket ve script tanımları
-├── test.js                    # Kapsamlı test paketi (25 test)
+├── test.js                    # Kapsamlı test paketi (33 test)
 ├── vercel.json                # Vercel yapılandırması (Edge rewrites & installCommand)
 ├── wrangler.toml              # Cloudflare Worker yapılandırması
 └── README.md                  # Dokümantasyon
@@ -267,29 +276,28 @@ hessen-artz-suche/
 
 ---
 
-### 💡 Teknik Üstünlükler
-
-- **Çift Taşıma Desteği (Dual Transport)**: Hem klasik **SSE Protokolü** (`GET /sse`) hem de modern **Streamable HTTP** (`POST /sse` / `POST /mcp`) desteklenir.
-- **Vercel Edge Uyumluluğu**: Saf Web Standardı (`Request`, `Response`, `ReadableStream`) kullanılarak derleme ve çalışma zamanı hataları engellenmiştir.
-- **Kesintisiz Akış**: Periyodik keep-alive sinyalleri ile bağlantı düşmeleri önlenir.
-- **Tam CORS & Discovery Desteği**: İstemcilerin gönderdiği `OPTIONS` ve `/.well-known/*` istekleri temiz yanıtlanır.
-
----
-
 ## 🇬🇧 English
 
 ### 📋 Overview
 
-A universal **MCP (Model Context Protocol) Server** for the **Hessen Arzt Suche API**, built to run natively on **Vercel (Edge Functions)**, **Cloudflare Workers**, and **local Node.js**. It enables AI clients such as Cursor, Claude, Antigravity, and VS Code to search for doctors, medical fields, and healthcare providers in Hessen, Germany.
+A universal **MCP (Model Context Protocol) Server** for the **Hessen Arzt Suche API**, built to run natively on **Vercel (Edge Functions)**, **Cloudflare Workers**, and **local Node.js**. It enables AI clients such as Cursor, Claude, Antigravity, and VS Code to search for doctors, medical practices, specializations, and **location radius searches (km)** in Hessen, Germany.
 
 ---
 
 ### ✅ Features & Tools
 
-| Tool | Description | Example Query |
-|------|-------------|---------------|
-| `suggest_aerzte` | Fast autocomplete suggestions for doctors and specialties | `{"query": "Kardiologe"}` |
-| `suche_doktor` | Detailed doctor search with full practice and contact information | `{"query": "Kinderorthopädie Darmstadt"}` |
+| Tool | Description | Parameters |
+|------|-------------|------------|
+| `suggest_plz_ort` | Search postal codes (PLZ) and cities in Hessen (returns exact GPS `lat`/`lon` coordinates) | `{"query": "Groß-Gerau"}` or `{"query": "64283"}` |
+| `suggest_aerzte` | Fast autocomplete suggestions for doctors, medical specialties, and designations | `{"query": "Kinderorthopädie"}` |
+| `suche_doktor` | Full doctor search with automatic location resolution, distance radius (km), and specialty filters | `{"location": "Darmstadt", "radius": 5, "query": "Kinderorthopädie"}` |
+
+#### 🔍 `suche_doktor` Parameters:
+- `location` *(string, optional)*: City name or postal code (e.g. `"Darmstadt"`, `"64521 Groß-Gerau"`, `"Frankfurt"`). Coordinates are resolved automatically.
+- `radius` *(number, optional)*: Search radius in kilometers (e.g. `0`, `5`, `10`, `15`, `20`, `25`, `50`). Default: `5`.
+- `query` *(string, optional)*: Doctor name or specialty keyword (e.g. `"Kinderorthopädie"`, `"Hausarzt"`, `"Müller"`).
+- `professionDoctor` *(array/string, optional)*: Profession/specialty codes (e.g. `["10"]` for General Medicine).
+- `limit` *(number, optional)*: Maximum number of doctor results to return (default: `25`).
 
 ---
 
@@ -302,7 +310,7 @@ cd hessen-artz-suche
 npm install
 ```
 
-#### 2️⃣ Run Test Suite (25 Automated Tests)
+#### 2️⃣ Run Test Suite (33 Automated Tests)
 ```bash
 npm test
 ```
@@ -321,11 +329,8 @@ npm start
 #### **1. Vercel (Edge Functions - Recommended)**
 
 - **Automatic via GitHub Actions**:
-  Add the following secrets in **GitHub → Settings → Secrets → Actions**:
-  - `VERCEL_TOKEN`: [Create here](https://vercel.com/account/tokens)
-  - `VERCEL_PROJECT_ID`: Your Vercel project ID
-  - `VERCEL_ORG_ID`: Your Vercel organization ID
-  - Pushing to `main` branch will automatically deploy.
+  Add `VERCEL_TOKEN`, `VERCEL_PROJECT_ID`, `VERCEL_ORG_ID` to **GitHub → Settings → Secrets → Actions**.
+  Pushing to `main` branch triggers automatic deployment.
 
 - **Manual**:
   ```bash
@@ -369,43 +374,11 @@ client = Client({
     "url": "https://<DEPLOY_URL>/sse"
 })
 
-# List tools
-tools = client.list_tools()
-
-# Execute search
-result = client.call_tool("suggest_aerzte", {"query": "Kinderorthopädie"})
+# Search within 5km of Groß-Gerau
+result = client.call_tool("suche_doktor", {
+    "location": "64521 Groß-Gerau",
+    "radius": 5,
+    "query": "Orthopädie"
+})
 print(result)
 ```
-
----
-
-### 📁 Project Structure
-
-```
-hessen-artz-suche/
-├── api/
-│   └── index.js              # Vercel Edge Function entry point (runtime: "edge")
-├── src/
-│   ├── index.js              # Universal Web Standards MCP Server (Fetch API)
-│   └── server.js             # Local Node.js HTTP server wrapper (npm start)
-├── .github/
-│   └── workflows/
-│       ├── deploy-cloudflare.yml  # Cloudflare deployment action
-│       └── deploy-vercel.yml      # Vercel deployment action
-├── .vercelignore              # Vercel file exclusion rules
-├── .cfignore                  # Cloudflare file exclusion rules
-├── package.json               # Package configuration and scripts
-├── test.js                    # Automated test suite (25 test cases)
-├── vercel.json                # Vercel configuration (Edge rewrites & installCommand)
-├── wrangler.toml              # Cloudflare Worker configuration
-└── README.md                  # Documentation
-```
-
----
-
-### 💡 Technical Architecture
-
-- **Dual Protocol Support**: Implements both **SSE (2024-11-05)** (`GET /sse` + session stream) and modern **Streamable HTTP** (`POST /sse` / `POST /mcp` with direct JSON-RPC responses).
-- **100% Edge Compliant**: Built strictly on Web Standard APIs (`Request`, `Response`, `ReadableStream`) to guarantee instant cold starts and global edge execution.
-- **Robust Error & Discovery Handling**: Gracefully handles OAuth and discovery probes (`/.well-known/*`) with standard 404 responses instead of 500 errors.
-- **Full CORS Enabled**: Accessible from any web agent, browser, or remote MCP client.

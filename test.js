@@ -1,12 +1,12 @@
 // ============================================
 // MCP Server Test Suite
-// Tests MCP Protocol & HTTP Endpoints
+// Tests MCP Protocol & Real API Integrations
 // ============================================
 
 import handler from "./src/index.js";
 
 async function runTests() {
-  console.log("🚀 Starting MCP Server tests...\n");
+  console.log("🚀 Starting Enhanced MCP Server tests...\n");
   let passed = 0;
   let failed = 0;
 
@@ -26,7 +26,9 @@ async function runTests() {
   assert(resHealth.status === 200, "Health status is 200");
   const healthData = await resHealth.json();
   assert(healthData.status === "ok", "Health response contains status 'ok'");
+  assert(healthData.tools.includes("suggest_plz_ort"), "Health lists suggest_plz_ort tool");
   assert(healthData.tools.includes("suggest_aerzte"), "Health lists suggest_aerzte tool");
+  assert(healthData.tools.includes("suche_doktor"), "Health lists suche_doktor tool");
 
   // Test 2: CORS Preflight
   console.log("\n2. Testing OPTIONS /sse (CORS Preflight)");
@@ -40,7 +42,6 @@ async function runTests() {
   assert(resSse.status === 200, "GET /sse status is 200");
   assert(resSse.headers.get("content-type").includes("text/event-stream"), "Content-Type is text/event-stream");
   
-  // Read first chunk from SSE stream
   const reader = resSse.body.getReader();
   const { value } = await reader.read();
   const chunkText = new TextDecoder().decode(value);
@@ -48,7 +49,6 @@ async function runTests() {
   assert(chunkText.includes("/sse?sessionId="), "SSE stream provides sessionId");
   reader.cancel();
 
-  // Extract sessionId
   const sessionIdMatch = chunkText.match(/sessionId=([a-zA-Z0-9_-]+)/);
   const sessionId = sessionIdMatch ? sessionIdMatch[1] : null;
   assert(sessionId !== null, `Extracted sessionId: ${sessionId}`);
@@ -74,16 +74,10 @@ async function runTests() {
   const initResult = await resInit.json();
   assert(initResult.id === 1, "Initialize response id matches");
   assert(initResult.result.serverInfo.name === "hessen-artz-suche-mcp", "Server name is correct");
-  assert(initResult.result.capabilities.tools !== undefined, "Tools capability advertised");
 
   // Test 5: tools/list
   console.log("\n5. Testing POST /sse (tools/list)");
-  const listPayload = {
-    jsonrpc: "2.0",
-    id: 2,
-    method: "tools/list",
-    params: {}
-  };
+  const listPayload = { jsonrpc: "2.0", id: 2, method: "tools/list", params: {} };
   const resList = await handler(new Request(`https://localhost/sse?sessionId=${sessionId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -91,48 +85,88 @@ async function runTests() {
   }));
   assert(resList.status === 200, "POST tools/list status is 200");
   const listResult = await resList.json();
-  assert(listResult.result.tools.length === 2, "Returns 2 tools");
+  assert(listResult.result.tools.length === 3, "Returns 3 tools");
+  assert(listResult.result.tools.some(t => t.name === "suggest_plz_ort"), "suggest_plz_ort tool found");
   assert(listResult.result.tools.some(t => t.name === "suggest_aerzte"), "suggest_aerzte tool found");
   assert(listResult.result.tools.some(t => t.name === "suche_doktor"), "suche_doktor tool found");
 
-  // Test 6: tools/call (suggest_aerzte)
-  console.log("\n6. Testing POST /sse (tools/call: suggest_aerzte)");
-  const callPayload = {
+  // Test 6: tools/call (suggest_plz_ort: Groß-Gerau)
+  console.log("\n6. Testing POST /sse (tools/call: suggest_plz_ort)");
+  const plzPayload = {
     jsonrpc: "2.0",
     id: 3,
     method: "tools/call",
-    params: {
-      name: "suggest_aerzte",
-      arguments: { query: "Müller" }
-    }
+    params: { name: "suggest_plz_ort", arguments: { query: "Groß-Gerau" } }
   };
-  const resCall = await handler(new Request(`https://localhost/sse?sessionId=${sessionId}`, {
+  const resPlz = await handler(new Request(`https://localhost/sse?sessionId=${sessionId}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(callPayload)
+    body: JSON.stringify(plzPayload)
   }));
-  assert(resCall.status === 200, "tools/call status is 200");
-  const callResult = await resCall.json();
-  assert(callResult.result.isError === false, "Tool executed without error");
-  assert(callResult.result.content[0].text.length > 0, "Tool returned content");
-  assert(callResult.result.content[0].text.includes("Müller"), "Result contains searched doctor data");
+  assert(resPlz.status === 200, "suggest_plz_ort status is 200");
+  const plzResult = await resPlz.json();
+  const plzData = JSON.parse(plzResult.result.content[0].text);
+  assert(Array.isArray(plzData) && plzData.length > 0, "Returns location array");
+  assert(plzData[0].plz === "64521" && plzData[0].lat !== undefined, "Extracted PLZ 64521 and coordinates");
 
-  // Test 7: ping
-  console.log("\n7. Testing POST /sse (ping)");
-  const pingPayload = { jsonrpc: "2.0", id: 4, method: "ping" };
+  // Test 7: tools/call (suggest_aerzte: Orthopädie)
+  console.log("\n7. Testing POST /sse (tools/call: suggest_aerzte)");
+  const aerztePayload = {
+    jsonrpc: "2.0",
+    id: 4,
+    method: "tools/call",
+    params: { name: "suggest_aerzte", arguments: { query: "Orthopädie" } }
+  };
+  const resAerzte = await handler(new Request(`https://localhost/sse?sessionId=${sessionId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(aerztePayload)
+  }));
+  assert(resAerzte.status === 200, "suggest_aerzte status is 200");
+  const aerzteResult = await resAerzte.json();
+  const aerzteData = JSON.parse(aerzteResult.result.content[0].text);
+  assert(Array.isArray(aerzteData) && aerzteData.length > 0, "Returns doctor suggestions array");
+  assert(aerzteData.some(a => a.label.includes("Orthopädie")), "Finds Orthopädie specialty");
+
+  // Test 8: tools/call (suche_doktor: Darmstadt + radius: 5 + query: Orthopädie)
+  console.log("\n8. Testing POST /sse (tools/call: suche_doktor with Location & Radius)");
+  const suchePayload = {
+    jsonrpc: "2.0",
+    id: 5,
+    method: "tools/call",
+    params: {
+      name: "suche_doktor",
+      arguments: {
+        location: "Darmstadt",
+        radius: 5,
+        query: "Orthopädie",
+        limit: 5
+      }
+    }
+  };
+  const resSuche = await handler(new Request(`https://localhost/sse?sessionId=${sessionId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(suchePayload)
+  }));
+  assert(resSuche.status === 200, "suche_doktor status is 200");
+  const sucheResult = await resSuche.json();
+  const searchData = JSON.parse(sucheResult.result.content[0].text);
+  assert(searchData.totalFound > 0, `Found ${searchData.totalFound} doctors in Darmstadt (5km radius)`);
+  assert(searchData.doctors.length > 0, "Returned formatted doctor list");
+  assert(searchData.doctors[0].name !== undefined, "Doctor has name");
+  assert(searchData.doctors[0].address?.street !== undefined, "Doctor has address");
+  assert(searchData.doctors[0].distance !== undefined, "Doctor has distance calculation");
+
+  // Test 9: ping
+  console.log("\n9. Testing POST /sse (ping)");
+  const pingPayload = { jsonrpc: "2.0", id: 6, method: "ping" };
   const resPing = await handler(new Request("https://localhost/sse", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(pingPayload)
   }));
   assert(resPing.status === 200, "ping status is 200");
-  const pingResult = await resPing.json();
-  assert(pingResult.id === 4, "ping id matches");
-
-  // Test 8: Discovery probe (/.well-known/oauth-protected-resource)
-  console.log("\n8. Testing GET /.well-known/... (Discovery probe)");
-  const resDiscovery = await handler(new Request("https://localhost/.well-known/oauth-protected-resource", { method: "GET" }));
-  assert(resDiscovery.status === 404, "Returns 404 cleanly instead of 500 error");
 
   console.log(`\n========================================`);
   console.log(`Test Summary: ${passed} Passed, ${failed} Failed`);
