@@ -2,6 +2,7 @@
 vercel.json
 .vercel/
 .vercelignore
+api/
 
 # GitHub Workflows for Vercel
 .github/workflows/deploy-vercel.yml
