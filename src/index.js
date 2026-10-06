@@ -16,17 +16,17 @@ const CORS_HEADERS = {
   "Access-Control-Expose-Headers": "Content-Type, Mcp-Session-Id",
 };
 
-// Available MCP Tools
+// Available MCP Tools with AI Behavioral Guidelines & Workflow Directives
 const TOOLS = [
   {
     name: "suggest_plz_ort",
-    description: "Search for postal codes (PLZ) and city names in Hessen to get exact geographical coordinates (lat/lon) for location radius search",
+    description: "Search postal codes (PLZ) and city names in Hessen, Germany. AI DIRECTIVE: Always call this or provide location to get exact GPS coordinates (lat/lon) before performing a radius distance search.",
     inputSchema: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "City name or postal code in Hessen (min. 2 characters, e.g. 'Darmstadt', '64521', 'Groß-Gerau', 'Frankfurt')"
+          description: "City name or 5-digit postal code in Hessen (e.g. 'Darmstadt', '64521', 'Groß-Gerau', 'Frankfurt am Main')"
         }
       },
       required: ["query"]
@@ -34,13 +34,13 @@ const TOOLS = [
   },
   {
     name: "suggest_aerzte",
-    description: "Search for doctor suggestions, specializations (Fachgebiet), sub-specialties (Schwerpunkt), or additional designations (Zusatzbezeichnung) in Hessen",
+    description: "Search for doctors, medical specialties (Fachgebiet), sub-specialties (Schwerpunkt), or additional qualifications (Zusatzbezeichnung) in Hessen. AI DIRECTIVE: Use this when the user's search term needs German medical classification mapping (e.g. 'Kinderorthopädie', 'Kardiologie', 'Innere Medizin').",
     inputSchema: {
       type: "object",
       properties: {
         query: {
           type: "string",
-          description: "Search query (min. 2 characters, e.g. 'Kinderorthopädie', 'Orthopädie', 'Kardiologe', 'Müller')"
+          description: "German medical search query (min. 2 characters, e.g. 'Kinderorthopädie', 'Orthopädie', 'Kardiologe', 'Müller')"
         }
       },
       required: ["query"]
@@ -48,13 +48,19 @@ const TOOLS = [
   },
   {
     name: "suche_doktor",
-    description: "Comprehensive doctor and specialist search in Hessen with location, radius (km), specialty filtering, and keyword search",
+    description: `Comprehensive doctor and specialist search in Hessen with location, radius (km), and specialty filters.
+
+AI WORKFLOW & POST-PROCESSING GUIDELINES:
+1. QUERY TRANSLATION: Automatically translate foreign language specialty requests to standard German medical terms (e.g., 'çocuk ortopedisi' -> 'Kinderorthopädie' or 'Orthopädie', 'kulak burun boğaz' -> 'Hals-Nasen-Ohrenheilkunde', 'göz doktoru' -> 'Augenheilkunde', 'dahiliye' -> 'Innere Medizin').
+2. CONTACT & WEBSITE VERIFICATION: When doctors are returned, check the results for phone numbers and profile links. If the user requests full contact details, office hours, or website information, use web search to inspect the official practice website or online booking profile (e.g., Doctolib, Jameda).
+3. MULTILINGUAL / LANGUAGE PREFERENCE: If the user requests a specific language (e.g. Turkish, English, Arabic), highlight and prioritize doctors who speak that language. If language info is not in the primary database, check the doctor's practice website to confirm spoken languages.
+4. DETAILED PRESENTATION: Format output with Doctor Name/Title, Specialty, Distance (km), Full Address, Phone Number, and Direct Profile/Booking Link. Group results clearly.`,
     inputSchema: {
       type: "object",
       properties: {
         location: {
           type: "string",
-          description: "City name or postal code in Hessen (e.g. 'Darmstadt', '64521', 'Groß-Gerau', 'Frankfurt am Main', 'Wiesbaden')"
+          description: "City name or postal code in Hessen (e.g. 'Darmstadt', '64521 Groß-Gerau', 'Frankfurt am Main', 'Wiesbaden'). Coordinates will be auto-resolved."
         },
         radius: {
           type: "number",
@@ -62,7 +68,7 @@ const TOOLS = [
         },
         query: {
           type: "string",
-          description: "Doctor name, specialty keyword, or search query (e.g. 'Kinderorthopädie', 'Orthopädie', 'Hausarzt', 'Kardiologe', 'Müller')"
+          description: "Doctor name, German specialty keyword, or medical search query (e.g. 'Kinderorthopädie', 'Orthopädie', 'Hausarzt', 'Kardiologe', 'Müller'). AI: Always provide German medical terms here."
         },
         lat: {
           type: "string",
@@ -74,7 +80,7 @@ const TOOLS = [
         },
         doctorType: {
           type: "string",
-          description: "Optional doctor type filter: 'doctor', 'psychotherapist', or '' (all)"
+          description: "Optional doctor type filter: 'doctor' (Ärzte), 'psychotherapist' (Psychotherapeuten), or '' (all)"
         },
         professionDoctor: {
           type: "array",
