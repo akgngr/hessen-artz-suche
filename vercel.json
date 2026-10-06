@@ -2,6 +2,7 @@
   "version": 2,
   "name": "hessen-artz-suche-mcp",
   "regions": ["fra1"],
+  "installCommand": "npm install --omit=dev",
   "rewrites": [
     {
       "source": "/(.*)",
