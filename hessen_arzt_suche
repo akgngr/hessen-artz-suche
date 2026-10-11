@@ -1,0 +1,7 @@
+{
+  "mcpServers": {
+    "hessen-artz": {
+      "url": "https://hessen-artz-suche.vercel.app/sse"
+    }
+  }
+}
